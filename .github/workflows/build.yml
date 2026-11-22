@@ -1,0 +1,49 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache AUI.Boot
+        uses: actions/cache@v4
+        with:
+          path: ~/.aui
+          key: ${{ runner.os }}-aui-boot-${{ hashFiles('CMakeLists.txt', 'aui.boot.cmake') }}
+          restore-keys: ${{ runner.os }}-aui-boot-
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config zlib1g-dev libssl-dev libcrypt-dev libcurl4-openssl-dev libgtk-3-dev \
+            libepoxy-dev libdbus-1-dev libfontconfig-dev libpulse-dev ninja-build
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DAUIB_PRODUCED_PACKAGES_SELF_SUFFICIENT=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Build tests
+        run: cmake --build build --parallel 4 --target Tests
+
+      - name: Run tests
+        working-directory: build/bin
+        shell: bash
+        run: ./Tests

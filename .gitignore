@@ -1,0 +1,18 @@
+/build*/
+/out/
+/.cache/
+.idea/
+/cmake-build-*/
+/reports/
+
+/android/build/
+/android/app/build/
+/android/.gradle/
+/android/local.properties
+
+# scratch files of local test runs
+/temp.html
+/test*.txt
+/text.txt
+/test.zip
+/screenshot.png
