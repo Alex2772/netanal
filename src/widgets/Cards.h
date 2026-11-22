@@ -30,14 +30,20 @@ struct SummaryItem {
 enum class SummaryState { OK, WARN, BAD, PENDING };
 
 namespace check {
-struct Idle {};
+struct Idle {
+    bool operator==(const Idle&) const = default;
+};
 struct Running {
     size_t done;
     size_t total;
     AString counts;
+
+    bool operator==(const Running&) const = default;
 };
 struct Finished {
     AString text;
+
+    bool operator==(const Finished&) const = default;
 };
 }   // namespace check
 
