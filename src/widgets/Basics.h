@@ -23,7 +23,7 @@ _<AView> emoji(AStringView name, AMetric size);
 /// Value of a card row, coloured by its severity.
 struct VerdictText {
     In<net::Verdict> value;
-    std::initializer_list<AString> classes = { ".w600" };
+    AVector<AString> classes = { ".w600" };
     _<AView> operator()();
 };
 
@@ -32,7 +32,7 @@ struct Caption {
     In<AString> text;
     AMetric size = 12_dp;
     AOptional<In<AColor>> color;
-    std::initializer_list<AString> classes = {};
+    AVector<AString> classes;
     _<AView> operator()();
 };
 
