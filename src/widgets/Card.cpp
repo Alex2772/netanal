@@ -23,7 +23,7 @@ namespace widgets {
 _<AView> dotItem(const AString& label, const AString& value, Severity severity, AMetric dotSize) {
     const auto color = severity == Severity::NEUTRAL ? NEUTRAL_GREY : theme::textColor(severity);
     return Horizontal {
-        Centered { Dot { color, dotSize } } AUI_OVERRIDE_STYLE { Padding { 0, 2_dp } },
+        Centered { Dot { .color = color, .size = dotSize } } AUI_OVERRIDE_STYLE { Padding { 0, 2_dp } },
         text(label, { ".muted" }, 12_dp),
         SpacerExpanding {},
         text(value, { ".w600" }) AUI_OVERRIDE_STYLE { FontSize { 12_dp }, TextColor { color } },
@@ -51,10 +51,10 @@ _<AView> DetailCard::operator()() {
     auto lines = Vertical {} AUI_OVERRIDE_STYLE { LayoutSpacing { 4_dp } };
     for (auto& r : rows) {
         lines->addView(Horizontal {
-            text(r.label, { ".muted" }),
-            SpacerExpanding {},
-            Flag { std::move(r.country) },
-            VerdictText { std::move(r.value) },
+          text(r.label, { ".muted" }),
+          SpacerExpanding {},
+          Flag { std::move(r.country) },
+          VerdictText { .value = std::move(r.value) },
         } AUI_OVERRIDE_STYLE { LayoutSpacing { 6_dp } });
     }
     return card(

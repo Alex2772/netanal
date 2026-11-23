@@ -2,6 +2,8 @@
 
 #include <AUI/Thread/AThreadPool.h>
 
+#include <algorithm>
+
 #include "Match.h"
 #include "main_window/Common.h"
 #include "Report.h"
@@ -20,7 +22,7 @@ constexpr bool isDnsItem(Sid id) {
            id == Sid::CACHE;
 }
 
-const Verdict CHECKING = { "проверяется…" };
+const Verdict CHECKING = { .value = "проверяется…" };
 
 AString cut(const AString& s, size_t n) { return s.length() <= n ? s : AString(s.substr(0, n)); }
 
@@ -32,13 +34,13 @@ Cell httpCell(const HttpResult& r) {
     return match(
         r,
         [](const HttpAnswered& a) {
-            return Cell { "{} · {}мс"_format(a.status, ms1(a.rtt)), theme::textColor(Severity::OK) };
+            return Cell { .value = "{} · {}мс"_format(a.status, ms1(a.rtt)), .color = theme::textColor(Severity::OK) };
         },
         [](const HttpFailed& f) {
             if (f.sslError) {
-                return Cell { "SSL серт (Минцифры?)", theme::textColor(Severity::WARN) };
+                return Cell { .value = "SSL серт (Минцифры?)", .color = theme::textColor(Severity::WARN) };
             }
-            return Cell { failCell(f.error, 22), theme::textColor(Severity::BAD) };
+            return Cell { .value = failCell(f.error, 22), .color = theme::textColor(Severity::BAD) };
         });
 }
 
@@ -62,7 +64,9 @@ AVector<SummaryItem> MainWindow::summaryItems() const {
         for (auto zone : ZONES) {
             const auto& z = *mZones[zone]->stats;
             items << SummaryItem {
-                "Зона {}"_format(zoneName(zone)), "{}/{}"_format(z.ok, z.total), zoneStatus(z.ok, z.total).severity
+                .label = "Зона {}"_format(zoneName(zone)),
+                .value = "{}/{}"_format(z.ok, z.total),
+                .severity = zoneStatus(z.ok, z.total).severity
             };
         }
     }
@@ -77,12 +81,13 @@ AVector<SummaryItem> MainWindow::summaryItems() const {
         if ((isDnsItem(s.id) || s.id == Sid::WINSOCK) && item->severity == Severity::OK) {
             continue;
         }
-        items << SummaryItem { AString(s.label), item->value, item->severity };
+        items << SummaryItem { .label = AString(s.label), .value = item->value, .severity = item->severity };
     }
     // problems first, then warnings, then OK
     auto order = [](Severity s) { return s == Severity::BAD ? 0 : s == Severity::WARN ? 1 : 2; };
-    std::stable_sort(items.begin(), items.end(),
-                     [&](const SummaryItem& a, const SummaryItem& b) { return order(a.severity) < order(b.severity); });
+    std::ranges::stable_sort(items, [&](const SummaryItem& a, const SummaryItem& b) {
+        return order(a.severity) < order(b.severity);
+    });
     return items;
 }
 
@@ -93,7 +98,7 @@ SummaryState MainWindow::summaryState() const {
     }
     const auto items = summaryItems();
     const auto has = [&](Severity s) {
-        return std::any_of(items.begin(), items.end(), [&](const SummaryItem& i) { return i.severity == s; });
+        return std::ranges::any_of(items, [&](const SummaryItem& i) { return i.severity == s; });
     };
     if (has(Severity::BAD)) {
         return SummaryState::BAD;
@@ -121,7 +126,7 @@ void MainWindow::populateStatus() {
 
 void MainWindow::updateVpnQuality() {
     if (!mVpnActive) {
-        setStatus(Sid::VPN_QUALITY, { "VPN выключен", Severity::NEUTRAL });
+        setStatus(Sid::VPN_QUALITY, { .value = "VPN выключен", .severity = Severity::NEUTRAL });
         return;
     }
     setStatus(Sid::VPN_QUALITY, vpnQualityVerdict(*mZones[Zone::FOREIGN]->stats));
@@ -138,7 +143,7 @@ AFuture<> MainWindow::refreshAll() {
     auto collected = co_await (AUI_THREADPOOL {
         auto snapshot = collectSystem();
         auto findings = analyze(snapshot);
-        return Collected { std::move(snapshot), std::move(findings) };
+        return Collected { .snapshot = std::move(snapshot), .findings = std::move(findings) };
     });
     mCollecting = false;
     mSnapshot = std::move(collected.snapshot);
@@ -230,19 +235,26 @@ void MainWindow::handleSite(const online::SiteChecked& e) {
     const auto& r = e.result;
     const auto dns = match(
         r.dns,
-        [](const Resolved& d) { return Cell { cut(join(d.ips, ", "), 26), theme::textColor(Severity::OK) }; },
-        [](const Failure& f) { return Cell { failCell(f.error, 22), theme::textColor(Severity::BAD) }; });
+        [](const Resolved& d) {
+            return Cell { .value = cut(join(d.ips, ", "), 26), .color = theme::textColor(Severity::OK) };
+        },
+        [](const Failure& f) {
+            return Cell { .value = failCell(f.error, 22), .color = theme::textColor(Severity::BAD) };
+        });
     const auto tcp = match(
-        r.tcp, [](Ms ms) { return Cell { "ok {}мс"_format(ms1(ms)), theme::textColor(Severity::OK) }; },
-        [](const Failure& f) { return Cell { failCell(f.error, 22), theme::textColor(Severity::BAD) }; });
+        r.tcp,
+        [](Ms ms) { return Cell { .value = "ok {}мс"_format(ms1(ms)), .color = theme::textColor(Severity::OK) }; },
+        [](const Failure& f) {
+            return Cell { .value = failCell(f.error, 22), .color = theme::textColor(Severity::BAD) };
+        });
     mOnlineRows.writeScope()->push_back({
-        Cell { AString(zoneShortName(r.zone)) },
-        Cell { r.name },
-        Cell { r.host },
-        dns,
-        tcp,
-        httpCell(r.http),
-        httpCell(r.httpDirect),
+      Cell { .value = AString(zoneShortName(r.zone)) },
+      Cell { .value = r.name },
+      Cell { .value = r.host },
+      dns,
+      tcp,
+      httpCell(r.http),
+      httpCell(r.httpDirect),
     });
 
     const bool reachable = siteReachable(r);
@@ -276,10 +288,10 @@ void MainWindow::handleDns(const online::DnsServerChecked& e) {
         e.result, [](const DnsAnswer& a) { return "ok {}мс {}"_format(ms1(a.rtt), cut(join(a.ips, ", "), 20)); },
         [](const Failure& f) { return failCell(f.error, 26); });
     mOnlineRows.writeScope()->push_back({
-        Cell { "DNS" },
-        Cell { e.label },
-        Cell { e.server },
-        Cell { cell },
+      Cell { .value = "DNS" },
+      Cell { .value = e.label },
+      Cell { .value = e.server },
+      Cell { .value = cell },
     });
 }
 
@@ -288,10 +300,10 @@ void MainWindow::handleGateway(const online::GatewayChecked& e) {
         e.result, [](const AOptional<int>& ms) { return ms ? "ok {}мс"_format(*ms) : AString("ok"); },
         [](const Failure& f) { return "× " + f.error; });
     mOnlineRows.writeScope()->push_back({
-        Cell { "Шлюз" },
-        Cell {},
-        Cell { e.gateway },
-        Cell { cell },
+      Cell { .value = "Шлюз" },
+      Cell {},
+      Cell { .value = e.gateway },
+      Cell { .value = cell },
     });
 }
 
@@ -316,11 +328,12 @@ void MainWindow::handleUdp(const online::UdpChecked& e) {
                 ports << AString::number(p);
             }
             return Verdict {
-                "{} мс · потери {}% · порты {}"_format(std::lround(u.rtt), std::lround(u.loss), join(ports, ", ")),
-                udpSeverity(u.rtt, u.loss),
+                .value =
+                    "{} мс · потери {}% · порты {}"_format(std::lround(u.rtt), std::lround(u.loss), join(ports, ", ")),
+                .severity = udpSeverity(u.rtt, u.loss),
             };
         },
-        [](const UdpZoneFailed& f) { return Verdict { f.error, Severity::BAD }; });
+        [](const UdpZoneFailed& f) { return Verdict { .value = f.error, .severity = Severity::BAD }; });
 }
 
 void MainWindow::handleIps(const online::IpsDetected& e) {
@@ -344,6 +357,8 @@ void MainWindow::onlineDone() {
     for (auto zone : ZONES) {
         zones[zone] = *mZones[zone]->stats;
     }
-    setStatus(Sid::DIAGNOSIS, vpnDiagnosis(zones, mVpnActive).valueOr(Verdict { "В норме", Severity::OK }));
+    setStatus(
+        Sid::DIAGNOSIS,
+        vpnDiagnosis(zones, mVpnActive).valueOr(Verdict { .value = "В норме", .severity = Severity::OK }));
     mChecking = false;
 }

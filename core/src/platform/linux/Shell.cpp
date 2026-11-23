@@ -40,7 +40,7 @@ AOptional<PipeFds> makePipe() {
     if (pipe(fds.data()) != 0) {
         return std::nullopt;
     }
-    return PipeFds { Fd(fds[0]), Fd(fds[1]) };
+    return PipeFds { .read = Fd(fds[0]), .write = Fd(fds[1]) };
 }
 
 /// NULL-terminated array of C strings over `storage`, for the exec family.
@@ -99,7 +99,10 @@ struct Drained {
 /// Reads both pipes until they close or the deadline passes.
 Drained drain(Fd outRead, Fd errRead, std::chrono::steady_clock::time_point deadline) {
     Drained result;
-    std::array fds = { pollfd { outRead.value, POLLIN, 0 }, pollfd { errRead.value, POLLIN, 0 } };
+    std::array fds = {
+        pollfd { .fd = outRead.value, .events = POLLIN, .revents = 0 },
+        pollfd { .fd = errRead.value, .events = POLLIN, .revents = 0 }
+    };
     size_t open = fds.size();
     std::array<char, 4096> buffer {};
     while (open > 0) {

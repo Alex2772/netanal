@@ -31,43 +31,65 @@ void analyzeRoutes(const SystemSnapshot& s, AVector<Finding>& out) {
     const bool bestViaTunnel = viaTunnel(best);
     const bool anyViaTunnel = std::ranges::any_of(defaults, viaTunnel);
     if (defaults.size() > 1 && anyViaTunnel && bestViaTunnel) {
-        out << Finding { Level::ERR,
-                         "Маршрут по умолчанию уходит в туннель: {} -> {} (метрика {}) — приоритетнее физического "
-                         "шлюза. ВЕСЬ трафик идёт через VPN-туннель, даже если VPN «отключён». Все шлюзы: {}"_format(
-                             best.gateway, best.iface, best.metric, desc) };
+        out << Finding {
+            .level = Level::ERR,
+            .message =
+                "Маршрут по умолчанию уходит в туннель: {} -> {} (метрика {}) — приоритетнее физического "
+                "шлюза. ВЕСЬ трафик идёт через VPN-туннель, даже если VPN «отключён». Все шлюзы: {}"_format(
+                    best.gateway, best.iface, best.metric, desc)
+        };
         return;
     }
     if (defaults.size() > 1) {
-        out << Finding { Level::WARN,
-                         "Несколько маршрутов по умолчанию: {}. Проверь метрики — трафик может уходить не туда."_format(
-                             desc) };
+        out << Finding {
+            .level = Level::WARN,
+            .message =
+                "Несколько маршрутов по умолчанию: {}. Проверь метрики — трафик может уходить не туда."_format(desc)
+        };
         return;
     }
     if (bestViaTunnel) {
-        out << Finding { Level::WARN, "Единственный маршрут по умолчанию идёт через туннель ({}). Без поднятого "
-                                      "туннеля интернет не заработает."_format(best.iface) };
+        out << Finding {
+            .level = Level::WARN,
+            .message =
+                "Единственный маршрут по умолчанию идёт через туннель ({}). Без поднятого "
+                "туннеля интернет не заработает."_format(best.iface)
+        };
     }
 }
 
 void analyzeAdapters(const SystemSnapshot& s, AVector<Finding>& out) {
     for (const auto& a : s.network.adapters) {
         if (isTunnelAdapter(a)) {
-            out << Finding { Level::WARN, "Найден виртуальный/туннельный адаптер «{}» ({}). Остаточные "
-                                          "TUN/TAP/WireGuard-адаптеры часто ломают маршрутизацию."_format(a.name,
-                                                                                                        a.desc) };
+            out << Finding {
+                .level = Level::WARN,
+                .message =
+                    "Найден виртуальный/туннельный адаптер «{}» ({}). Остаточные "
+                    "TUN/TAP/WireGuard-адаптеры часто ломают маршрутизацию."_format(a.name, a.desc)
+            };
         } else if (isVmAdapter(a)) {
-            out << Finding { Level::INFO,
-                             "Адаптер виртуальной машины «{}» ({}) — обычно безвреден."_format(a.name, a.desc) };
+            out << Finding {
+                .level = Level::INFO,
+                .message = "Адаптер виртуальной машины «{}» ({}) — обычно безвреден."_format(a.name, a.desc)
+            };
         }
         if (a.unknown) {
-            out << Finding { Level::INFO, "Адаптер «{}» помечен как «неизвестный» — обычно это "
-                                          "скрытый/остаточный драйвер."_format(a.name) };
+            out << Finding {
+                .level = Level::INFO,
+                .message =
+                    "Адаптер «{}» помечен как «неизвестный» — обычно это "
+                    "скрытый/остаточный драйвер."_format(a.name)
+            };
         }
         for (const auto& dns : a.dns) {
             const auto d = AString(AString(dns.substr(0, dns.find('('))).trim());
             if (isTunnelIp(d) || d.startsWith("10.") || d.startsWith("127.")) {
-                out << Finding { Level::WARN, "DNS на адаптере «{}» указывает на туннельный/локальный резолвер {}. "
-                                              "Если туннель выключен — DNS перестанет работать."_format(a.name, d) };
+                out << Finding {
+                    .level = Level::WARN,
+                    .message =
+                        "DNS на адаптере «{}» указывает на туннельный/локальный резолвер {}. "
+                        "Если туннель выключен — DNS перестанет работать."_format(a.name, d)
+                };
             }
         }
     }
@@ -77,15 +99,18 @@ void analyzeProxy(const SystemSnapshot& s, AVector<Finding>& out) {
     if (s.proxy.enabled) {
         const auto& server = s.proxy.server;
         if (server.contains("127.0.0.1") || server.contains("localhost")) {
-            out << Finding { Level::WARN, "Системный прокси включён и указывает на локальный порт: {}. Если "
-                                          "прокси-клиент выключен — приложения останутся без интернета."_format(
-                                              server) };
+            out << Finding {
+                .level = Level::WARN,
+                .message =
+                    "Системный прокси включён и указывает на локальный порт: {}. Если "
+                    "прокси-клиент выключен — приложения останутся без интернета."_format(server)
+            };
         } else {
-            out << Finding { Level::WARN, "Системный прокси включён: {}"_format(server) };
+            out << Finding { .level = Level::WARN, .message = "Системный прокси включён: {}"_format(server) };
         }
     }
     if (!s.proxy.pacUrl.empty()) {
-        out << Finding { Level::INFO, "Настроен PAC-скрипт: {}"_format(s.proxy.pacUrl) };
+        out << Finding { .level = Level::INFO, .message = "Настроен PAC-скрипт: {}"_format(s.proxy.pacUrl) };
     }
 }
 
@@ -101,40 +126,48 @@ void analyzeDnsCache(const SystemSnapshot& s, AVector<Finding>& out) {
         return;
     }
     if (auto sus = suspiciousRecords(*records)) {
-        out << Finding { Level::WARN, "В DNS-кэше {} записей разрешаются в подозрительные адреса (loopback/частные). "
-                                      "Очистка кэша заставит переразрешить имена."_format(sus) };
+        out << Finding {
+            .level = Level::WARN,
+            .message =
+                "В DNS-кэше {} записей разрешаются в подозрительные адреса (loopback/частные). "
+                "Очистка кэша заставит переразрешить имена."_format(sus)
+        };
         return;
     }
-    out << Finding { Level::INFO, "DNS-кэш: {} записей, подозрительных не найдено."_format(records->size()) };
+    out << Finding {
+        .level = Level::INFO, .message = "DNS-кэш: {} записей, подозрительных не найдено."_format(records->size())
+    };
 }
 
 void analyzeWinsock(const SystemSnapshot& s, AVector<Finding>& out) {
     const auto base = baseLsp(s.winsock);
     if (auto third = thirdPartyLsp(s.winsock); !third.empty()) {
         out << Finding {
-            Level::WARN,
-            "Winsock: обнаружено {} сторонних LSP-провайдера (не Microsoft). netsh winsock reset вернёт каталог к "
-            "стандартному (нужна перезагрузка)."_format(third.size()),
+            .level = Level::WARN,
+            .message =
+                "Winsock: обнаружено {} сторонних LSP-провайдера (не Microsoft). netsh winsock reset вернёт каталог к "
+                "стандартному (нужна перезагрузка)."_format(third.size()),
         };
         return;
     }
     if (!base.empty()) {
         out << Finding {
-            Level::INFO,
-            "Winsock: каталог стандартный ({} базовых провайдеров), сторонних LSP нет."_format(base.size()),
+            .level = Level::INFO,
+            .message = "Winsock: каталог стандартный ({} базовых провайдеров), сторонних LSP нет."_format(base.size()),
         };
     }
 }
 
 Verdict cacheVerdict(const DnsCache& cache) {
     return match(
-        cache, [](dns_cache::NeedsAdmin) { return Verdict { "нужны права админа", Severity::NEUTRAL }; },
-        [](dns_cache::Unavailable) { return Verdict { "н/д", Severity::NEUTRAL }; },
+        cache,
+        [](dns_cache::NeedsAdmin) { return Verdict { .value = "нужны права админа", .severity = Severity::NEUTRAL }; },
+        [](dns_cache::Unavailable) { return Verdict { .value = "н/д", .severity = Severity::NEUTRAL }; },
         [](const dns_cache::Records& records) {
             if (auto sus = suspiciousRecords(records)) {
-                return Verdict { "{} подозр."_format(sus), Severity::WARN };
+                return Verdict { .value = "{} подозр."_format(sus), .severity = Severity::WARN };
             }
-            return Verdict { "Чистый", Severity::OK };
+            return Verdict { .value = "Чистый", .severity = Severity::OK };
         });
 }
 
@@ -213,12 +246,20 @@ AVector<Finding> analyze(const SystemSnapshot& snapshot) {
     analyzeAdapters(snapshot, findings);
     analyzeProxy(snapshot, findings);
     if (snapshot.nrptPolicies > 0) {
-        findings << Finding { Level::WARN, "Обнаружены NRPT-политики разрешения имён — их оставляют VPN-клиенты, они "
-                                           "часто ломают DNS." };
+        findings << Finding {
+            .level = Level::WARN,
+            .message =
+                "Обнаружены NRPT-политики разрешения имён — их оставляют VPN-клиенты, они "
+                "часто ломают DNS."
+        };
     }
     if (!snapshot.hostsEntries.empty()) {
-        findings << Finding { Level::INFO, "В hosts есть активные записи ({} шт.) — проверь, что они намеренные "
-                                           "(вкладка hosts)."_format(snapshot.hostsEntries.size()) };
+        findings << Finding {
+            .level = Level::INFO,
+            .message =
+                "В hosts есть активные записи ({} шт.) — проверь, что они намеренные "
+                "(вкладка hosts)."_format(snapshot.hostsEntries.size())
+        };
     }
     analyzeDnsCache(snapshot, findings);
     analyzeWinsock(snapshot, findings);
@@ -232,44 +273,50 @@ SystemStatus determineStatus(const SystemSnapshot& snapshot) {
     const bool active = !tunnel.activeTunnels.empty();
     status.vpnActive = active && tunnel.carriesTraffic();
     if (status.vpnActive) {
-        status.vpn = { "Активен", Severity::OK };
+        status.vpn = { .value = "Активен", .severity = Severity::OK };
     } else if (active) {
-        status.vpn = { "Адаптер поднят, без маршрута", Severity::WARN };
+        status.vpn = { .value = "Адаптер поднят, без маршрута", .severity = Severity::WARN };
     } else if (!tunnel.tunnelAdapters.empty()) {
-        status.vpn = { "Выключен (остался адаптер)", Severity::WARN };
+        status.vpn = { .value = "Выключен (остался адаптер)", .severity = Severity::WARN };
     } else {
-        status.vpn = { "Выключен", Severity::NEUTRAL };
+        status.vpn = { .value = "Выключен", .severity = Severity::NEUTRAL };
     }
 
     if (tunnel.carriesTraffic()) {
-        status.route = { "Через туннель", Severity::OK };
+        status.route = { .value = "Через туннель", .severity = Severity::OK };
     } else if (tunnel.capture.fraction > 0) {
-        status.route = { "Частично через туннель", Severity::WARN };
+        status.route = { .value = "Частично через туннель", .severity = Severity::WARN };
     } else {
-        status.route = { "Напрямую", Severity::NEUTRAL };
+        status.route = { .value = "Напрямую", .severity = Severity::NEUTRAL };
     }
 
-    status.proxy = snapshot.proxy.enabled ? Verdict { "Включён ({})"_format(snapshot.proxy.server), Severity::WARN }
-                                          : Verdict { "Выключен", Severity::NEUTRAL };
+    status.proxy =
+        snapshot.proxy.enabled
+            ? Verdict { .value = "Включён ({})"_format(snapshot.proxy.server), .severity = Severity::WARN }
+            : Verdict { .value = "Выключен", .severity = Severity::NEUTRAL };
 
     status.cache = cacheVerdict(snapshot.dnsCache);
 
     if (auto third = thirdPartyLsp(snapshot.winsock); !third.empty()) {
-        status.winsock = { "{} сторонних"_format(third.size()), Severity::WARN };
+        status.winsock = { .value = "{} сторонних"_format(third.size()), .severity = Severity::WARN };
     } else if (!baseLsp(snapshot.winsock).empty()) {
-        status.winsock = { "Стандартный", Severity::OK };
+        status.winsock = { .value = "Стандартный", .severity = Severity::OK };
     } else {
-        status.winsock = { "н/д", Severity::NEUTRAL };
+        status.winsock = { .value = "н/д", .severity = Severity::NEUTRAL };
     }
 
     if (tunnel.tunnelAdapters.empty()) {
-        status.adapters = { "Нет", Severity::OK };
+        status.adapters = { .value = "Нет", .severity = Severity::OK };
     } else if (auto leftover = tunnel.tunnelAdapters.size() - tunnel.activeTunnels.size()) {
-        status.adapters = { "{} шт ({} активн., {} остаточн.)"_format(tunnel.tunnelAdapters.size(),
-                                                                     tunnel.activeTunnels.size(), leftover),
-                            Severity::WARN };
+        status.adapters = {
+            .value = "{} шт ({} активн., {} остаточн.)"_format(
+                tunnel.tunnelAdapters.size(), tunnel.activeTunnels.size(), leftover),
+            .severity = Severity::WARN
+        };
     } else {
-        status.adapters = { "{} шт (активные)"_format(tunnel.tunnelAdapters.size()), Severity::NEUTRAL };
+        status.adapters = {
+            .value = "{} шт (активные)"_format(tunnel.tunnelAdapters.size()), .severity = Severity::NEUTRAL
+        };
     }
     return status;
 }

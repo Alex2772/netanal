@@ -22,19 +22,19 @@ struct StatusSpec {
 };
 
 inline constexpr auto STATUS_SPECS = std::to_array<StatusSpec>({
-    { Sid::VPN, "VPN/туннель", "Туннель" },
-    { Sid::ROUTE, "Маршрутизация", "Режим" },
-    { Sid::PROXY, "Системный прокси", "Прокси" },
-    { Sid::CACHE, "DNS-кэш", "Кэш" },
-    { Sid::WINSOCK, "Winsock (LSP)", "" },
-    { Sid::ADAPTERS, "Вирт. адаптеры", "Адаптеры" },
-    { Sid::DNS_LIVE, "DNS (напрямую)", "Резолвинг" },
-    { Sid::RESOLVER, "DNS-резолвер", "Резолвер" },
-    { Sid::SPLIT_DNS, "Split DNS", "Split DNS" },
-    { Sid::CENSORSHIP, "DNS-фильтрация", "Фильтрация" },
-    { Sid::VPN_QUALITY, "VPN-качество", "Качество" },
-    { Sid::SPLIT, "Split-tunneling", "Split" },
-    { Sid::DIAGNOSIS, "Диагноз VPN", "Диагноз" },
+  { .id = Sid::VPN, .label = "VPN/туннель", .row = "Туннель" },
+  { .id = Sid::ROUTE, .label = "Маршрутизация", .row = "Режим" },
+  { .id = Sid::PROXY, .label = "Системный прокси", .row = "Прокси" },
+  { .id = Sid::CACHE, .label = "DNS-кэш", .row = "Кэш" },
+  { .id = Sid::WINSOCK, .label = "Winsock (LSP)", .row = "" },
+  { .id = Sid::ADAPTERS, .label = "Вирт. адаптеры", .row = "Адаптеры" },
+  { .id = Sid::DNS_LIVE, .label = "DNS (напрямую)", .row = "Резолвинг" },
+  { .id = Sid::RESOLVER, .label = "DNS-резолвер", .row = "Резолвер" },
+  { .id = Sid::SPLIT_DNS, .label = "Split DNS", .row = "Split DNS" },
+  { .id = Sid::CENSORSHIP, .label = "DNS-фильтрация", .row = "Фильтрация" },
+  { .id = Sid::VPN_QUALITY, .label = "VPN-качество", .row = "Качество" },
+  { .id = Sid::SPLIT, .label = "Split-tunneling", .row = "Split" },
+  { .id = Sid::DIAGNOSIS, .label = "Диагноз VPN", .row = "Диагноз" },
 });
 static_assert(STATUS_SPECS.size() == size_t(Sid::COUNT));
 
@@ -43,7 +43,7 @@ constexpr const StatusSpec& spec(Sid id) { return STATUS_SPECS[size_t(id)]; }
 /// Zones of the "UDP (игры)" card: UDP is not checked for the blocked one.
 inline constexpr auto UDP_ZONES = std::to_array({ net::Zone::RU, net::Zone::FOREIGN });
 
-inline const net::Verdict PENDING = { "…" };
+inline const net::Verdict PENDING = { .value = "…" };
 
 inline AString geoCountry(const AOptional<net::Geo>& geo) {
     if (!geo || geo->country.empty()) {

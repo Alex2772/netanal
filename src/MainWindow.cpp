@@ -34,24 +34,26 @@ struct TunnelProbe {
 TunnelProbe probeTunnel(bool speedAllowed) {
     auto r = monitorProbe();
     if (r.state != MonitorState::SUSPECT) {
-        return { std::move(r) };
+        return { .result = std::move(r) };
     }
     if (!speedAllowed) {
-        r.checks << MonitorCheck { "Скорость", "не мерили (пауза)", Severity::NEUTRAL };
-        return { std::move(r) };
+        r.checks << MonitorCheck { .label = "Скорость", .value = "не мерили (пауза)", .severity = Severity::NEUTRAL };
+        return { .result = std::move(r) };
     }
     const auto urls = speedEndpoints(Zone::FOREIGN);
     const auto sp = speedTest(urls);
     if (auto s = std::get_if<Speed>(&sp); s && s->mbps >= 5.0) {
-        r.checks << MonitorCheck { "Скорость", "{:.0f} Мбит/с"_format(s->mbps), Severity::OK };
+        r.checks << MonitorCheck {
+            .label = "Скорость", .value = "{:.0f} Мбит/с"_format(s->mbps), .severity = Severity::OK
+        };
         r.state = MonitorState::OK;
         r.detail = "{}, скорость {:.1f} Мбит/с"_format(r.detail, s->mbps);
     } else {
-        r.checks << MonitorCheck { "Скорость", "низкая", Severity::BAD };
+        r.checks << MonitorCheck { .label = "Скорость", .value = "низкая", .severity = Severity::BAD };
         r.state = MonitorState::BAD;
         r.detail = "туннель нестабилен ({})"_format(r.detail);
     }
-    return { std::move(r), true };
+    return { .result = std::move(r), .speedMeasured = true };
 }
 
 }   // namespace
@@ -77,9 +79,12 @@ MainWindow::MainWindow()
         Label { AUI_REACT(*mStatusText) } AUI_OVERRIDE_STYLE { TextColor { rgb(0x757575) } },
         TabView {
             .tabs = {
-                { "Главная", AScrollArea::Builder().withContents(dashboard()).withExpanding().build() },
-                { "Сводка", summaryTab() },
-                { "Система", systemTab() },
+                {
+                    .title = "Главная",
+                    .content = AScrollArea::Builder().withContents(dashboard()).withExpanding().build(),
+                },
+                { .title = "Сводка", .content = summaryTab() },
+                { .title = "Система", .content = systemTab() },
             },
         } AUI_OVERRIDE_STYLE { Expanding {} },
         footer(),

@@ -3,6 +3,8 @@
 #include <AUI/ASS/ASS.h>
 #include <AUI/Util/UIBuildingHelpers.h>
 
+#include <algorithm>
+
 #include "Match.h"
 #include "Report.h"
 #include "Theme.h"
@@ -25,33 +27,33 @@ namespace {
 
 Verdict pingVerdict(const net::ZoneStats& z) {
     if (auto avg = net::filteredAvg(z.lats)) {
-        return { "{} мс"_format(std::lround(*avg)), net::pingSeverity(*avg) };
+        return { .value = "{} мс"_format(std::lround(*avg)), .severity = net::pingSeverity(*avg) };
     }
-    return { "—" };
+    return { .value = "—" };
 }
 
 Verdict dnsVerdict(const net::ZoneStats& z) {
     if (auto avg = net::filteredAvg(z.dnsMs)) {
-        return { "{} мс"_format(std::lround(*avg)), net::dnsSeverity(*avg) };
+        return { .value = "{} мс"_format(std::lround(*avg)), .severity = net::dnsSeverity(*avg) };
     }
-    return { "—" };
+    return { .value = "—" };
 }
 
 Verdict speedVerdict(const net::ZoneStats& z) {
     return match(
         z.speed,
         [](const net::Speed& s) -> Verdict {
-            return { "{:.0f} Мбит/с"_format(s.mbps), net::speedSeverity(s.mbps) };
+            return { .value = "{:.0f} Мбит/с"_format(s.mbps), .severity = net::speedSeverity(s.mbps) };
         },
-        [](const net::Failure&) -> Verdict { return { "нет", Severity::BAD }; },
-        [](net::SpeedPending) -> Verdict { return { "…" }; });
+        [](const net::Failure&) -> Verdict { return { .value = "нет", .severity = Severity::BAD }; },
+        [](net::SpeedPending) -> Verdict { return { .value = "…" }; });
 }
 
 Verdict sitesVerdict(const net::ZoneStats& z) {
     if (z.total == 0) {
-        return { "—" };
+        return { .value = "—" };
     }
-    return { "{}/{}"_format(z.ok, z.total), net::zoneStatus(z.ok, z.total).severity };
+    return { .value = "{}/{}"_format(z.ok, z.total), .severity = net::zoneStatus(z.ok, z.total).severity };
 }
 
 /// "пинг, мс · 10–102": the caption with the range of `values`.
@@ -59,7 +61,7 @@ AString rangeCaption(AStringView caption, const AVector<double>& values) {
     if (values.empty()) {
         return AString(caption);
     }
-    const auto [mn, mx] = std::minmax_element(values.begin(), values.end());
+    const auto [mn, mx] = std::ranges::minmax_element(values);
     return "{} · {:.0f}–{:.0f}"_format(caption, *mn, *mx);
 }
 
@@ -113,42 +115,42 @@ _<AView> ZoneCard::operator()() {
         return Horizontal {
             text(std::move(label), { ".muted" }),
             SpacerExpanding {},
-            VerdictText { std::move(value), { ".w700" } },
+            VerdictText { .value = std::move(value), .classes = { ".w700" } },
         } AUI_OVERRIDE_STYLE { LayoutSpacing { 8_dp } };
     };
     c->addViews({
-        text(AString(net::zoneName(zone)), { ".w700" }, 15_dp),
-        Horizontal {
-            Flag { AUI_REACT(ipCountry(*m->ip)) },
-            Caption { .text = AUI_REACT(ipText(*m->ip)), .color = IP_TEAL },
-        } AUI_OVERRIDE_STYLE { LayoutSpacing { 6_dp } },
-        chip,
-        param("Пинг", AUI_REACT(pingVerdict(stats()))),
-        param("DNS", AUI_REACT(dnsVerdict(stats()))),
-        param("Скорость", AUI_REACT(speedVerdict(stats()))),
-        param("Сайтов", AUI_REACT(sitesVerdict(stats()))),
-        Progress {
-            AUI_REACT(AOptional<float>(stats().total ? float(stats().ok) / float(stats().total) : 0.f)),
-            6_dp,
+      text(AString(net::zoneName(zone)), { ".w700" }, 15_dp),
+      Horizontal {
+        Flag { AUI_REACT(ipCountry(*m->ip)) },
+        Caption { .text = AUI_REACT(ipText(*m->ip)), .color = IP_TEAL },
+      } AUI_OVERRIDE_STYLE { LayoutSpacing { 6_dp } },
+      chip,
+      param("Пинг", AUI_REACT(pingVerdict(stats()))),
+      param("DNS", AUI_REACT(dnsVerdict(stats()))),
+      param("Скорость", AUI_REACT(speedVerdict(stats()))),
+      param("Сайтов", AUI_REACT(sitesVerdict(stats()))),
+      Progress {
+        .value = AUI_REACT(AOptional<float>(stats().total ? float(stats().ok) / float(stats().total) : 0.f)),
+        .height = 6_dp,
+      },
+      Sparkline { .values = AUI_REACT(*m->pingHistory), .color = std::move(accent), .height = 42_dp },
+      Horizontal {
+        emoji("chart", 12_dp),
+        Caption {
+          .text = AUI_REACT(rangeCaption("пинг, мс", stats().lats)),
+          .size = 11_dp,
+          .classes = { ".muted" },
         },
-        Sparkline { .values = AUI_REACT(*m->pingHistory), .color = std::move(accent), .height = 42_dp },
-        Horizontal {
-            emoji("chart", 12_dp),
-            Caption {
-                .text = AUI_REACT(rangeCaption("пинг, мс", stats().lats)),
-                .size = 11_dp,
-                .classes = { ".muted" },
-            },
-        } AUI_OVERRIDE_STYLE { LayoutSpacing { 4_dp } },
-        Sparkline { .values = AUI_REACT(*m->speedHistory), .color = OK_GREEN, .height = 32_dp },
-        Horizontal {
-            emoji("signal", 12_dp),
-            Caption {
-                .text = AUI_REACT(rangeCaption("скорость, Мбит/с", *m->speedHistory)),
-                .size = 11_dp,
-                .classes = { ".muted" },
-            },
-        } AUI_OVERRIDE_STYLE { LayoutSpacing { 4_dp } },
+      } AUI_OVERRIDE_STYLE { LayoutSpacing { 4_dp } },
+      Sparkline { .values = AUI_REACT(*m->speedHistory), .color = OK_GREEN, .height = 32_dp },
+      Horizontal {
+        emoji("signal", 12_dp),
+        Caption {
+          .text = AUI_REACT(rangeCaption("скорость, Мбит/с", *m->speedHistory)),
+          .size = 11_dp,
+          .classes = { ".muted" },
+        },
+      } AUI_OVERRIDE_STYLE { LayoutSpacing { 4_dp } },
     });
     return c;
 }

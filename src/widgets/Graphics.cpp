@@ -1,5 +1,6 @@
 #include "widgets/Graphics.h"
 
+#include <algorithm>
 #include <chrono>
 
 #include <AUI/ASS/ASS.h>
@@ -47,7 +48,7 @@ public:
             ctx.render.line(ASolidBrush { theme::trackColor() }, { 0, h / 2 }, { w, h / 2 });
             return;
         }
-        const auto [mnIt, mxIt] = std::minmax_element(mValues.begin(), mValues.end());
+        const auto [mnIt, mxIt] = std::ranges::minmax_element(mValues);
         const auto mn = *mnIt;
         const auto mx = *mxIt == mn ? mn + 1.0 : *mxIt;
         const auto n = mValues.size();

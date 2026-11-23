@@ -30,15 +30,15 @@ struct SummaryHead {
 SummaryHead summaryHead(SummaryState state) {
     switch (state) {
         case SummaryState::OK:
-            return { "check", "ВСЁ ОК", OK_GREEN };
+            return { .icon = "check", .title = "ВСЁ ОК", .color = OK_GREEN };
         case SummaryState::BAD:
-            return { "cross", "НЕ ОК", BAD_RED };
+            return { .icon = "cross", .title = "НЕ ОК", .color = BAD_RED };
         case SummaryState::PENDING:
-            return { "hourglass", "ИДЁТ ПРОВЕРКА", NEUTRAL_GREY };
+            return { .icon = "hourglass", .title = "ИДЁТ ПРОВЕРКА", .color = NEUTRAL_GREY };
         case SummaryState::WARN:
             break;
     }
-    return { "warning", "ЕСТЬ ЗАМЕЧАНИЯ", WARN_ORANGE };
+    return { .icon = "warning", .title = "ЕСТЬ ЗАМЕЧАНИЯ", .color = WARN_ORANGE };
 }
 
 struct Look {
@@ -48,9 +48,11 @@ struct Look {
 
 Look checkLine(const CheckProgress& progress) {
     return match(
-        progress, [](check::Idle) { return Look { "", theme::MUTED_GREY }; },
-        [](const check::Running& r) { return Look { "Сайты: {} / {}"_format(r.done, r.total), WARN_ORANGE }; },
-        [](const check::Finished& f) { return Look { f.text, OK_GREEN }; });
+        progress, [](check::Idle) { return Look { .text = "", .color = theme::MUTED_GREY }; },
+        [](const check::Running& r) {
+            return Look { .text = "Сайты: {} / {}"_format(r.done, r.total), .color = WARN_ORANGE };
+        },
+        [](const check::Finished& f) { return Look { .text = f.text, .color = OK_GREEN }; });
 }
 
 AOptional<float> checkFraction(const CheckProgress& progress) {
@@ -99,19 +101,20 @@ _<AView> SummaryCard::operator()() {
                 .classes = { ".w800" },
             },
             SpacerExpanding {},
-        } AUI_OVERRIDE_STYLE { LayoutSpacing { 12_dp } },
-        Caption {
-            .text = AUI_REACT(AString(checkLine(*check).text)),
-            .size = 11_dp,
-            .color = AUI_REACT(AColor(checkLine(*check).color)),
-        },
-        Progress { AUI_REACT(checkFraction(*check)), 4_dp },
-        Caption { .text = AUI_REACT(checkCounts(*check)), .size = 11_dp, .classes = { ".muted" } },
-        Dynamic<AVector<SummaryItem>> {
-            .value = std::move(items),
-            .view = [](const AVector<SummaryItem>& list) { return dotList(list, 8_dp); },
-        },
-    });
+        }
+        AUI_OVERRIDE_STYLE { LayoutSpacing { 12_dp } },
+            Caption {
+                .text = AUI_REACT(AString(checkLine(*check).text)),
+                .size = 11_dp,
+                .color = AUI_REACT(AColor(checkLine(*check).color)),
+            },
+            Progress { .value = AUI_REACT(checkFraction(*check)), .height = 4_dp },
+            Caption { .text = AUI_REACT(checkCounts(*check)), .size = 11_dp, .classes = { ".muted" } },
+            Dynamic<AVector<SummaryItem>> {
+                .value = std::move(items),
+                .view = [](const AVector<SummaryItem>& list) { return dotList(list, 8_dp); },
+            },
+        });
     return c;
 }
 
@@ -119,19 +122,19 @@ namespace {
 
 Look monitorLook(const AOptional<net::MonitorResult>& result) {
     if (!result) {
-        return { "выключен", theme::MUTED_GREY };
+        return { .text = "выключен", .color = theme::MUTED_GREY };
     }
     switch (result->state) {
         case net::MonitorState::OK:
-            return { "туннель в норме", OK_GREEN };
+            return { .text = "туннель в норме", .color = OK_GREEN };
         case net::MonitorState::SUSPECT:
-            return { "есть сомнения", WARN_ORANGE };
+            return { .text = "есть сомнения", .color = WARN_ORANGE };
         case net::MonitorState::BAD:
-            return { "туннель нестабилен", BAD_RED };
+            return { .text = "туннель нестабилен", .color = BAD_RED };
         case net::MonitorState::OFF:
             break;
     }
-    return { "VPN выключен", theme::MONITOR_OFF };
+    return { .text = "VPN выключен", .color = theme::MONITOR_OFF };
 }
 
 AVector<SummaryItem> monitorItems(const AOptional<net::MonitorResult>& result) {
@@ -140,7 +143,7 @@ AVector<SummaryItem> monitorItems(const AOptional<net::MonitorResult>& result) {
         return items;
     }
     for (const auto& c : result->checks) {
-        items << SummaryItem { c.label, c.value, c.severity };
+        items << SummaryItem { .label = c.label, .value = c.value, .severity = c.severity };
     }
     return items;
 }
@@ -154,27 +157,27 @@ _<AView> MonitorCard::operator()() {
     auto last = share(std::move(lastCheck), c);
     auto on = share(std::move(enabled), c);
     c->addViews({
-        cardTitle("antenna", "Мониторинг туннеля"),
-        Horizontal {
-            Dot { AUI_REACT(AColor(monitorLook(*monitor).color)), 9_dp },
-            Caption {
-                .text = AUI_REACT(AString(monitorLook(*monitor).text)),
-                .color = AUI_REACT(AColor(monitorLook(*monitor).color)),
-            },
-            SpacerExpanding {},
-        } AUI_OVERRIDE_STYLE { LayoutSpacing { 6_dp } },
-        Dynamic<AVector<SummaryItem>> {
-            .value = AUI_REACT(monitorItems(*monitor)),
-            .view = [](const AVector<SummaryItem>& list) { return dotList(list, 7_dp); },
-        },
-        Caption { .text = AUI_REACT("последняя: " + **last), .size = 11_dp, .classes = { ".muted" } },
-        Progress { AUI_REACT(AOptional<float>(float(60 - left().valueOr(60)) / 60.f)), 4_dp },
+      cardTitle("antenna", "Мониторинг туннеля"),
+      Horizontal {
+        Dot { .color = AUI_REACT(AColor(monitorLook(*monitor).color)), .size = 9_dp },
         Caption {
-            .text = AUI_REACT(left() ? "следующая через {} с"_format(*left()) : AString("следующая: —")),
-            .size = 11_dp,
-            .classes = { ".muted" },
+          .text = AUI_REACT(AString(monitorLook(*monitor).text)),
+          .color = AUI_REACT(AColor(monitorLook(*monitor).color)),
         },
-        Button { .content = Label { AUI_REACT(AString(**on ? "Пауза" : "Включить")) }, .onClick = std::move(onToggle) },
+        SpacerExpanding {},
+      } AUI_OVERRIDE_STYLE { LayoutSpacing { 6_dp } },
+      Dynamic<AVector<SummaryItem>> {
+        .value = AUI_REACT(monitorItems(*monitor)),
+        .view = [](const AVector<SummaryItem>& list) { return dotList(list, 7_dp); },
+      },
+      Caption { .text = AUI_REACT("последняя: " + **last), .size = 11_dp, .classes = { ".muted" } },
+      Progress { .value = AUI_REACT(AOptional<float>(float(60 - left().valueOr(60)) / 60.f)), .height = 4_dp },
+      Caption {
+        .text = AUI_REACT(left() ? "следующая через {} с"_format(*left()) : AString("следующая: —")),
+        .size = 11_dp,
+        .classes = { ".muted" },
+      },
+      Button { .content = Label { AUI_REACT(AString(**on ? "Пауза" : "Включить")) }, .onClick = std::move(onToggle) },
     });
     return c;
 }

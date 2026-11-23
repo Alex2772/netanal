@@ -15,12 +15,12 @@ struct Accent {
 };
 
 inline const auto ACCENTS = std::to_array<Accent>({
-    { "Бирюзовый", AColor(0x00bcd4ffu) },
-    { "Синий", AColor(0x42a5f5ffu) },
-    { "Фиолетовый", AColor(0xab47bcffu) },
-    { "Зелёный", AColor(0x66bb6affu) },
-    { "Янтарный", AColor(0xffb300ffu) },
-    { "Розовый", AColor(0xec407affu) },
+  { .name = "Бирюзовый", .color = AColor(0x00bcd4ffu) },
+  { .name = "Синий", .color = AColor(0x42a5f5ffu) },
+  { .name = "Фиолетовый", .color = AColor(0xab47bcffu) },
+  { .name = "Зелёный", .color = AColor(0x66bb6affu) },
+  { .name = "Янтарный", .color = AColor(0xffb300ffu) },
+  { .name = "Розовый", .color = AColor(0xec407affu) },
 });
 
 /// Chip background (zone status, finding stripe).

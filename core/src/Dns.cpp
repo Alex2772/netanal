@@ -40,12 +40,12 @@ Verdict dnsResolutionCheck() {
         }
     }
     if (outcomes.contains(Outcome::OK)) {
-        return { "Корректен", Severity::OK };
+        return { .value = "Корректен", .severity = Severity::OK };
     }
     if (outcomes.contains(Outcome::POISON)) {
-        return { "Подменяется", Severity::BAD };
+        return { .value = "Подменяется", .severity = Severity::BAD };
     }
-    return { "Блокируется (UDP/53)", Severity::BAD };
+    return { .value = "Блокируется (UDP/53)", .severity = Severity::BAD };
 }
 
 AOptional<Whoami> dnsWhoami() {
@@ -62,14 +62,14 @@ Verdict dnsCensorshipVerdict(std::span<const CensorshipCheck> checks) {
     for (const auto& c : checks) {
         // the system does not resolve, DoH does: the domain is blocked at DNS
         if (!c.systemOk && c.dohOk && !c.dohIps.empty()) {
-            return { "Блокирует ({})"_format(c.domain), Severity::BAD };
+            return { .value = "Блокирует ({})"_format(c.domain), .severity = Severity::BAD };
         }
         // the system returned 0.0.0.0 / private / loopback: spoofing
         if (c.systemOk && anySuspicious(c.systemIps)) {
-            return { "Подмена ({})"_format(c.domain), Severity::BAD };
+            return { .value = "Подмена ({})"_format(c.domain), .severity = Severity::BAD };
         }
     }
-    return { "Не фильтруется", Severity::OK };
+    return { .value = "Не фильтруется", .severity = Severity::OK };
 }
 
 DnsReport dnsAnalysis() {
@@ -98,21 +98,21 @@ DnsReport dnsAnalysis() {
 Verdict resolverVerdict(const DnsReport& report) {
     if (report.resolverGeo && !report.resolverGeo->country.empty()) {
         const auto provider = report.resolverGeo->org.split(' ').first();
-        return { "{} · {}"_format(report.resolverGeo->country, provider), Severity::OK };
+        return { .value = "{} · {}"_format(report.resolverGeo->country, provider), .severity = Severity::OK };
     }
     if (report.whoami) {
-        return { "определён (без гео)", Severity::NEUTRAL };
+        return { .value = "определён (без гео)", .severity = Severity::NEUTRAL };
     }
-    return { "не определён", Severity::NEUTRAL };
+    return { .value = "не определён", .severity = Severity::NEUTRAL };
 }
 
 Verdict splitDnsCheck(const NetworkState& network) {
     const auto [direct, tunnel] = pathDnsServers(network.adapters);
     if (tunnel.empty()) {
-        return { "не настроен (один DNS)", Severity::NEUTRAL };
+        return { .value = "не настроен (один DNS)", .severity = Severity::NEUTRAL };
     }
     if (ASet<AString>(tunnel.begin(), tunnel.end()) == ASet<AString>(direct.begin(), direct.end())) {
-        return { "не настроен (общий DNS)", Severity::NEUTRAL };
+        return { .value = "не настроен (общий DNS)", .severity = Severity::NEUTRAL };
     }
     const auto directIp = resolverIp(direct);
     const auto tunnelIp = resolverIp(tunnel);
@@ -123,20 +123,22 @@ Verdict splitDnsCheck(const NetworkState& network) {
         const auto tc = tunnelGeo ? tunnelGeo->country : AString {};
         if (!dc.empty() && !tc.empty()) {
             const bool ok = isRussia(dc) && !isRussia(tc);
-            return { "активен: прямой → {}, VPN → {}"_format(dc, tc), ok ? Severity::OK : Severity::WARN };
+            return {
+                .value = "активен: прямой → {}, VPN → {}"_format(dc, tc), .severity = ok ? Severity::OK : Severity::WARN
+            };
         }
-        return { "активен (прямой {}, VPN {})"_format(*directIp, *tunnelIp), Severity::OK };
+        return { .value = "активен (прямой {}, VPN {})"_format(*directIp, *tunnelIp), .severity = Severity::OK };
     }
     if (directIp && tunnelIp) {
-        return { "оба пути через один резолвер", Severity::WARN };
+        return { .value = "оба пути через один резолвер", .severity = Severity::WARN };
     }
     if (directIp) {
-        return { "VPN DNS не отвечает", Severity::BAD };
+        return { .value = "VPN DNS не отвечает", .severity = Severity::BAD };
     }
     if (tunnelIp) {
-        return { "прямой DNS не отвечает", Severity::BAD };
+        return { .value = "прямой DNS не отвечает", .severity = Severity::BAD };
     }
-    return { "DNS не отвечает", Severity::BAD };
+    return { .value = "DNS не отвечает", .severity = Severity::BAD };
 }
 
 }   // namespace net

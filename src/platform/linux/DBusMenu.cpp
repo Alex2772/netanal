@@ -27,10 +27,12 @@ constexpr AStringView MEMBERS =
 DBusMenu::DBusMenu(DBusConnection* connection, AVector<Item> items)
   : mItems(std::move(items)),
     mProperties {
-        { "Version", "u", [](dbus::Writer& w) { w.uint32(3); } },
-        { "TextDirection", "s", [](dbus::Writer& w) { w.string("ltr"); } },
-        { "Status", "s", [](dbus::Writer& w) { w.string("normal"); } },
-        { "IconThemePath", "as", [](dbus::Writer& w) { w.array("s", [](dbus::Writer&) {}); } },
+        { .name = "Version", .signature = "u", .write = [](dbus::Writer& w) { w.uint32(3); } },
+        { .name = "TextDirection", .signature = "s", .write = [](dbus::Writer& w) { w.string("ltr"); } },
+        { .name = "Status", .signature = "s", .write = [](dbus::Writer& w) { w.string("normal"); } },
+        { .name = "IconThemePath",
+          .signature = "as",
+          .write = [](dbus::Writer& w) { w.array("s", [](dbus::Writer&) {}); } },
     },
     mExport(connection, PATH, [this](DBusMessage* call) { return handle(call); }) {}
 

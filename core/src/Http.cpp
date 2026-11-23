@@ -130,7 +130,7 @@ void download(AStringView url, std::chrono::steady_clock::time_point deadline, s
     struct Sink {
         std::atomic<size_t>& total;
         Clock::time_point deadline;
-    } sink { total, deadline };
+    } sink { .total = total, .deadline = deadline };
     curl_easy_setopt(c.get(), CURLOPT_WRITEDATA, &sink);
     curl_easy_setopt(c.get(), CURLOPT_WRITEFUNCTION, +[](char*, size_t size, size_t n, void* user) -> size_t {
         auto& s = *static_cast<Sink*>(user);
