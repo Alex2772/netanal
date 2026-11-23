@@ -68,7 +68,7 @@ std::variant<AVector<AString>, Failure> resolveAll(AStringView host) {
         ips << addressText(i->ai_addr);
     }
     std::ranges::sort(ips);
-    ips.erase(std::unique(ips.begin(), ips.end()), ips.end());
+    ips.erase(std::ranges::unique(ips).begin(), ips.end());
     return ips;
 }
 

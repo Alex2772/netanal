@@ -79,7 +79,7 @@ void runOnline(const SiteLists& sites, const std::function<void(OnlineEvent)>& o
     AVector<SiteTask> siteTasks;
     for (auto zone : ZONES) {
         for (const auto& site : sites[zone]) {
-            siteTasks << SiteTask { zone, site };
+            siteTasks << SiteTask { .zone = zone, .site = site };
         }
     }
     // 3-4 parallel requests: no burst that would trigger the VPN / DNS / CDN
@@ -107,13 +107,13 @@ void runOnline(const SiteLists& sites, const std::function<void(OnlineEvent)>& o
     for (auto zone : ZONES) {
         extras << Extra([&, zone] {
             const auto urls = speedEndpoints(zone);
-            post(online::SpeedMeasured { zone, speedTest(urls) });
+            post(online::SpeedMeasured { .zone = zone, .result = speedTest(urls) });
         });
     }
     extras << Extra([&] { post(online::IpsDetected { detectIps() }); });
     for (auto zone : ZONES) {
         if (!udpTargets(zone).empty()) {
-            extras << Extra([&, zone] { post(online::UdpChecked { zone, udpZoneTest(zone) }); });
+            extras << Extra([&, zone] { post(online::UdpChecked { .zone = zone, .result = udpZoneTest(zone) }); });
         }
     }
     parallelFor<Extra>(extras, 4, stop, [](const Extra& f) { f(); });
@@ -127,7 +127,10 @@ MonitorResult monitorProbe() {
     if (capture.fraction < 0.5) {
         return { .state = MonitorState::OFF, .detail = "VPN выключен" };
     }
-    MonitorResult result { .state = MonitorState::OK, .checks = { { "VPN", "активен", Severity::OK } } };
+    MonitorResult result {
+        .state = MonitorState::OK,
+        .checks = { { .label = "VPN", .value = "активен", .severity = Severity::OK } },
+    };
 
     // end-to-end HTTPS through the current path (TUN/proxy), without the system proxy
     bool ok = false;
@@ -141,14 +144,14 @@ MonitorResult monitorProbe() {
         }
     }
     if (!ok) {
-        result.checks << MonitorCheck { "Трафик", "нет ответа", Severity::BAD };
+        result.checks << MonitorCheck { .label = "Трафик", .value = "нет ответа", .severity = Severity::BAD };
         result.state = MonitorState::SUSPECT;
         result.detail = "трафик через туннель не проходит";
         return result;
     }
     const auto severity = ms < 4000 ? Severity::OK : ms < 8000 ? Severity::WARN : Severity::BAD;
     const auto rounded = int(std::lround(ms));
-    result.checks << MonitorCheck { "Трафик", "{} мс"_format(rounded), severity };
+    result.checks << MonitorCheck { .label = "Трафик", .value = "{} мс"_format(rounded), .severity = severity };
     if (severity == Severity::BAD) {
         result.state = MonitorState::SUSPECT;
         result.detail = "трафик очень медленный ({} мс)"_format(rounded);

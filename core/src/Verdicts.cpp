@@ -39,16 +39,16 @@ bool siteReachable(const SiteResult& result) {
 
 Verdict zoneStatus(size_t ok, size_t total) {
     if (total == 0) {
-        return { "—", Severity::NEUTRAL };
+        return { .value = "—", .severity = Severity::NEUTRAL };
     }
     const double r = double(ok) / double(total);
     if (r >= 0.8) {
-        return { "ДОСТУПНО", Severity::OK };
+        return { .value = "ДОСТУПНО", .severity = Severity::OK };
     }
     if (r < 0.5) {
-        return { "НЕДОСТУПНО", Severity::BAD };
+        return { .value = "НЕДОСТУПНО", .severity = Severity::BAD };
     }
-    return { "ЧАСТИЧНО", Severity::WARN };
+    return { .value = "ЧАСТИЧНО", .severity = Severity::WARN };
 }
 
 Verdict vpnQualityVerdict(const ZoneStats& foreign) {
@@ -61,45 +61,48 @@ Verdict vpnQualityVerdict(const ZoneStats& foreign) {
         }
     }
     return match(
-        foreign.speed, [](SpeedPending) -> Verdict { return { "проверяется…", Severity::NEUTRAL }; },
-        [](const Failure&) -> Verdict { return { "Туннель не пропускает трафик", Severity::BAD }; },
+        foreign.speed,
+        [](SpeedPending) -> Verdict { return { .value = "проверяется…", .severity = Severity::NEUTRAL }; },
+        [](const Failure&) -> Verdict {
+            return { .value = "Туннель не пропускает трафик", .severity = Severity::BAD };
+        },
         [&](const Speed& s) -> Verdict {
             const auto base = "{:.1f} Мбит/с{}"_format(s.mbps, latency);
             if (s.mbps < 1.0) {
-                return { "Критически низкая скорость ({})"_format(base), Severity::BAD };
+                return { .value = "Критически низкая скорость ({})"_format(base), .severity = Severity::BAD };
             }
             if (s.mbps < 5.0) {
-                return { "Сильно режется ({})"_format(base), Severity::BAD };
+                return { .value = "Сильно режется ({})"_format(base), .severity = Severity::BAD };
             }
             if (s.mbps < 15) {
-                return { "Медленно ({})"_format(base), Severity::WARN };
+                return { .value = "Медленно ({})"_format(base), .severity = Severity::WARN };
             }
-            return { "В порядке ({})"_format(base), Severity::OK };
+            return { .value = "В порядке ({})"_format(base), .severity = Severity::OK };
         });
 }
 
 Verdict splitTunnelingStatus(const PerZone<ZoneIp>& zones, bool vpnActive) {
     if (!vpnActive) {
-        return { "VPN выключен", Severity::NEUTRAL };
+        return { .value = "VPN выключен", .severity = Severity::NEUTRAL };
     }
     const auto& ru = zones[Zone::RU];
     const auto& foreign = zones[Zone::FOREIGN];
     if (ru.ip && foreign.ip && *ru.ip != *foreign.ip) {
-        return { "Активен (RU -> {}, зарубеж -> {})"_format(*ru.ip, *foreign.ip), Severity::OK };
+        return { .value = "Активен (RU -> {}, зарубеж -> {})"_format(*ru.ip, *foreign.ip), .severity = Severity::OK };
     }
     // fallback: the local path, for WireGuard/AmneziaWG where routing is IP-level
     if (ru.egress && foreign.egress && !ru.egress->viaTunnel && foreign.egress->viaTunnel) {
-        return { "Активен (RU напрямую)", Severity::OK };
+        return { .value = "Активен (RU напрямую)", .severity = Severity::OK };
     }
     // only the blocked resources go through the tunnel (geosite/geoip ru-blocked rules)
     const auto& blocked = zones[Zone::BLOCKED];
     if (ru.ip && blocked.ip && *ru.ip != *blocked.ip) {
-        return { "Активен (только заблокированные -> {})"_format(*blocked.ip), Severity::OK };
+        return { .value = "Активен (только заблокированные -> {})"_format(*blocked.ip), .severity = Severity::OK };
     }
     if (foreign.ip && ru.ip == foreign.ip) {
-        return { "Нет (полный туннель)", Severity::NEUTRAL };
+        return { .value = "Нет (полный туннель)", .severity = Severity::NEUTRAL };
     }
-    return { "не определён", Severity::NEUTRAL };
+    return { .value = "не определён", .severity = Severity::NEUTRAL };
 }
 
 AOptional<Verdict> vpnDiagnosis(const PerZone<ZoneStats>& zones, bool vpnActive) {
@@ -112,25 +115,36 @@ AOptional<Verdict> vpnDiagnosis(const PerZone<ZoneStats>& zones, bool vpnActive)
     constexpr double HALF = 0.5;
     if (!vpnActive) {
         if (*bl < HALF) {
-            return Verdict { "VPN выключен (заблокированные недоступны — это ожидаемо)", Severity::NEUTRAL };
+            return Verdict {
+                .value = "VPN выключен (заблокированные недоступны — это ожидаемо)", .severity = Severity::NEUTRAL
+            };
         }
         return std::nullopt;
     }
     if (*ru < HALF && *fo < HALF) {
-        return Verdict { "VPN откис: туннель поднят, но ни RU, ни обычные зарубежные не открываются — меняй "
-                         "локацию/провайдера",
-                         Severity::BAD };
+        return Verdict {
+            .value =
+                "VPN откис: туннель поднят, но ни RU, ни обычные зарубежные не открываются — меняй "
+                "локацию/провайдера",
+            .severity = Severity::BAD
+        };
     }
     if (*ru < HALF) {
-        return Verdict { "Проблема split-tunneling: зарубежные и заблокированные работают, а RU не идёт напрямую",
-                         Severity::BAD };
+        return Verdict {
+            .value = "Проблема split-tunneling: зарубежные и заблокированные работают, а RU не идёт напрямую",
+            .severity = Severity::BAD
+        };
     }
     if (*fo < HALF) {
-        return Verdict { "VPN не пропускает обычные зарубежные — меняй локацию/провайдера", Severity::BAD };
+        return Verdict {
+            .value = "VPN не пропускает обычные зарубежные — меняй локацию/провайдера", .severity = Severity::BAD
+        };
     }
     if (*bl < HALF) {
-        return Verdict { "VPN не обходит блокировки: RU и зарубежные в норме, а заблокированные не открываются",
-                         Severity::BAD };
+        return Verdict {
+            .value = "VPN не обходит блокировки: RU и зарубежные в норме, а заблокированные не открываются",
+            .severity = Severity::BAD
+        };
     }
     return std::nullopt;
 }

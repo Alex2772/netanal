@@ -69,10 +69,12 @@ Tray::Tray(Actions actions) : mImpl(std::make_unique<Impl>()) {
         return;
     }
     const auto open = onUiThread(mImpl->actions, &Actions::onOpen);
-    mImpl->menu = std::make_unique<DBusMenu>(connection, AVector<DBusMenu::Item> {
-                                                             { "Открыть NetAnal", open },
-                                                             { "Выйти", onUiThread(mImpl->actions, &Actions::onQuit) },
-                                                         });
+    mImpl->menu = std::make_unique<DBusMenu>(
+        connection,
+        AVector<DBusMenu::Item> {
+          { .label = "Открыть NetAnal", .onClick = open },
+          { .label = "Выйти", .onClick = onUiThread(mImpl->actions, &Actions::onQuit) },
+        });
     mImpl->item = std::make_unique<StatusNotifierItem>(
         connection, StatusNotifierItem::Args { .title = "NetAnal", .menu = DBusMenu::PATH, .onActivate = open });
     mImpl->loop = std::jthread([connection](std::stop_token stop) {

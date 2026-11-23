@@ -194,10 +194,10 @@ _<AView> MainWindow::header() {
 
 _<AView> MainWindow::footer() {
     return Horizontal {
-        Dot { AUI_REACT(*mMonitorEnabled ? monitorColor(*mMonitor) : theme::MONITOR_OFF), 8_dp },
+        Dot { .color = AUI_REACT(*mMonitorEnabled ? monitorColor(*mMonitor) : theme::MONITOR_OFF), .size = 8_dp },
         Caption {
-            .text = AUI_REACT(monitorFooter(*mMonitor, *mMonitorEnabled)),
-            .color = AUI_REACT(*mMonitorEnabled && *mMonitor ? monitorColor(*mMonitor) : rgb(0x607d8b)),
+          .text = AUI_REACT(monitorFooter(*mMonitor, *mMonitorEnabled)),
+          .color = AUI_REACT(*mMonitorEnabled && *mMonitor ? monitorColor(*mMonitor) : rgb(0x607d8b)),
         },
         SpacerExpanding {},
         text("NetAnal · v1.0") AUI_OVERRIDE_STYLE { FontSize { 12_dp }, TextColor { rgb(0x455a64) } },

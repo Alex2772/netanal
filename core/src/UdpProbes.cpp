@@ -39,17 +39,17 @@ AVector<std::byte> payloadFor(UdpKind kind) {
 }
 
 const PerZone<AVector<UdpTarget>> UDP_TARGETS = { {
-    AVector<UdpTarget> {
-        { "STUN Sipnet", "stun.sipnet.ru", 3478, UdpKind::STUN },
-        { "NTP VNIIFTRI", "ntp1.vniiftri.ru", 123, UdpKind::NTP },
-        { "DNS Яндекс", "77.88.8.8", 53, UdpKind::DNS },
-    },
-    AVector<UdpTarget> {
-        { "STUN Cloudflare", "stun.cloudflare.com", 3478, UdpKind::STUN },
-        { "NTP Google", "time.google.com", 123, UdpKind::NTP },
-        { "DNS Cloudflare", "1.1.1.1", 53, UdpKind::DNS },
-    },
-    AVector<UdpTarget> {},
+  AVector<UdpTarget> {
+    { .name = "STUN Sipnet", .host = "stun.sipnet.ru", .port = 3478, .kind = UdpKind::STUN },
+    { .name = "NTP VNIIFTRI", .host = "ntp1.vniiftri.ru", .port = 123, .kind = UdpKind::NTP },
+    { .name = "DNS Яндекс", .host = "77.88.8.8", .port = 53, .kind = UdpKind::DNS },
+  },
+  AVector<UdpTarget> {
+    { .name = "STUN Cloudflare", .host = "stun.cloudflare.com", .port = 3478, .kind = UdpKind::STUN },
+    { .name = "NTP Google", .host = "time.google.com", .port = 123, .kind = UdpKind::NTP },
+    { .name = "DNS Cloudflare", .host = "1.1.1.1", .port = 53, .kind = UdpKind::DNS },
+  },
+  AVector<UdpTarget> {},
 } };
 
 }   // namespace

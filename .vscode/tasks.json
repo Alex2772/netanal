@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cmake",
+			"label": "build",
+			"command": "build",
+			"targets": [
+				"netanal"
+			],
+			"group": "build",
+			"problemMatcher": [],
+			"detail": "Use this to build the project"
+		}
+	]
+}

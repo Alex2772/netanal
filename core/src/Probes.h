@@ -18,12 +18,12 @@ struct NamedServer {
 };
 
 inline constexpr auto DNS_SERVERS = std::to_array<NamedServer>({
-    { "Cloudflare", "1.1.1.1" },
-    { "Cloudflare-2", "1.0.0.1" },
-    { "Google", "8.8.8.8" },
-    { "Google-2", "8.8.4.4" },
-    { "Quad9", "9.9.9.9" },
-    { "Яндекс DNS", "77.88.8.8" },
+  { .name = "Cloudflare", .address = "1.1.1.1" },
+  { .name = "Cloudflare-2", .address = "1.0.0.1" },
+  { .name = "Google", .address = "8.8.8.8" },
+  { .name = "Google-2", .address = "8.8.4.4" },
+  { .name = "Quad9", .address = "9.9.9.9" },
+  { .name = "Яндекс DNS", .address = "77.88.8.8" },
 });
 
 /// Large static files without rate limits.

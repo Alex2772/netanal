@@ -74,33 +74,37 @@ PerZone<AOptional<AString>> getZoneIps(std::chrono::milliseconds timeout) {
     AVector<Task> tasks;
     for (auto zone : ZONES) {
         for (auto url : echoServers(zone)) {
-            tasks << Task { zone, url, std::async(std::launch::async, [url, timeout]() -> AOptional<AString> {
-                               auto body = httpGet(url, timeout, 12000);
-                               auto* text = std::get_if<AString>(&body);
-                               if (!text) {
-                                   return std::nullopt;
-                               }
-                               std::string candidate = AString(text->trim(" \t\r\n")).toStdString();
-                               if (url.ends_with("/cdn-cgi/trace")) {
-                                   static const std::regex TRACE_IP(R"((?:^|\n)ip=([^\n]+))");
-                                   if (std::smatch m; std::regex_search(candidate, m, TRACE_IP)) {
-                                       candidate = m[1].str();
-                                   }
-                               }
-                               if (url.ends_with("format=json")) {
-                                   try {
-                                       candidate = jsonText(AJson::fromString(candidate), "ip").toStdString();
-                                   } catch (...) {
-                                   }
-                               }
-                               static const std::regex V4(R"((?:\d{1,3}\.){3}\d{1,3})");
-                               static const std::regex V6(R"([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{0,4}){2,7})");
-                               std::smatch m;
-                               if (std::regex_search(candidate, m, V4) || std::regex_search(candidate, m, V6)) {
-                                   return AString(m[0].str());
-                               }
-                               return std::nullopt;
-                           }) };
+            tasks << Task {
+                .zone = zone,
+                .url = url,
+                .ip = std::async(std::launch::async, [url, timeout]() -> AOptional<AString> {
+                    auto body = httpGet(url, timeout, 12000);
+                    auto* text = std::get_if<AString>(&body);
+                    if (!text) {
+                        return std::nullopt;
+                    }
+                    std::string candidate = AString(text->trim(" \t\r\n")).toStdString();
+                    if (url.ends_with("/cdn-cgi/trace")) {
+                        static const std::regex TRACE_IP(R"((?:^|\n)ip=([^\n]+))");
+                        if (std::smatch m; std::regex_search(candidate, m, TRACE_IP)) {
+                            candidate = m[1].str();
+                        }
+                    }
+                    if (url.ends_with("format=json")) {
+                        try {
+                            candidate = jsonText(AJson::fromString(candidate), "ip").toStdString();
+                        } catch (...) {
+                        }
+                    }
+                    static const std::regex V4(R"((?:\d{1,3}\.){3}\d{1,3})");
+                    static const std::regex V6(R"([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{0,4}){2,7})");
+                    std::smatch m;
+                    if (std::regex_search(candidate, m, V4) || std::regex_search(candidate, m, V6)) {
+                        return AString(m[0].str());
+                    }
+                    return std::nullopt;
+                }),
+            };
         }
     }
     PerZone<AOptional<AString>> result;

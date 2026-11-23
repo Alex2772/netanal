@@ -1,5 +1,7 @@
 #include "StatusNotifierItem.h"
 
+#include <cmath>
+
 #include "Theme.h"
 #include "TrayIcon.h"
 
@@ -19,7 +21,7 @@ constexpr AStringView MEMBERS = R"(  <method name="Activate"><arg type="i" direc
 AVector<uint8_t> circlePixels(AColor color) {
     AVector<uint8_t> pixels;
     pixels.reserve(tray_icon::SIZE * tray_icon::SIZE * 4);
-    const auto channel = [](float c) { return uint8_t(c * 255.f + 0.5f); };
+    const auto channel = [](float c) { return uint8_t(std::lround(c * 255.f)); };
     for (int y = 0; y < tray_icon::SIZE; ++y) {
         for (int x = 0; x < tray_icon::SIZE; ++x) {
             pixels << channel(tray_icon::coverage(x, y)) << channel(color.r) << channel(color.g) << channel(color.b);
@@ -42,24 +44,24 @@ StatusNotifierItem::StatusNotifierItem(DBusConnection* connection, Args args)
     mArgs(std::move(args)),
     mState { .color = theme::MONITOR_OFF, .toolTip = mArgs.title },
     mProperties {
-        { "Category", "s", [](dbus::Writer& w) { w.string("ApplicationStatus"); } },
-        { "Id", "s", [](dbus::Writer& w) { w.string("netanal"); } },
-        { "Title", "s", [this](dbus::Writer& w) { w.string(mArgs.title); } },
-        { "Status", "s", [](dbus::Writer& w) { w.string("Active"); } },
-        { "WindowId", "u", [](dbus::Writer& w) { w.uint32(0); } },
-        { "IconName", "s", [](dbus::Writer& w) { w.string(""); } },
-        { "IconPixmap", "a(iiay)",
-          [this](dbus::Writer& w) {
+        { .name = "Category", .signature = "s", .write = [](dbus::Writer& w) { w.string("ApplicationStatus"); } },
+        { .name = "Id", .signature = "s", .write = [](dbus::Writer& w) { w.string("netanal"); } },
+        { .name = "Title", .signature = "s", .write = [this](dbus::Writer& w) { w.string(mArgs.title); } },
+        { .name = "Status", .signature = "s", .write = [](dbus::Writer& w) { w.string("Active"); } },
+        { .name = "WindowId", .signature = "u", .write = [](dbus::Writer& w) { w.uint32(0); } },
+        { .name = "IconName", .signature = "s", .write = [](dbus::Writer& w) { w.string(""); } },
+        { .name = "IconPixmap", .signature = "a(iiay)",
+          .write = [this](dbus::Writer& w) {
               w.array("(iiay)", [&](dbus::Writer& list) { writePixmap(list, state().color); });
           } },
-        { "ToolTip", "(sa(iiay)ss)",
-          [this](dbus::Writer& w) {
+        { .name = "ToolTip", .signature = "(sa(iiay)ss)",
+          .write = [this](dbus::Writer& w) {
               w.structure([&](dbus::Writer& tip) {
                   tip.string("").array("(iiay)", [](dbus::Writer&) {}).string(state().toolTip).string("");
               });
           } },
-        { "ItemIsMenu", "b", [](dbus::Writer& w) { w.boolean(false); } },
-        { "Menu", "o", [this](dbus::Writer& w) { w.objectPath(mArgs.menu); } },
+        { .name = "ItemIsMenu", .signature = "b", .write = [](dbus::Writer& w) { w.boolean(false); } },
+        { .name = "Menu", .signature = "o", .write = [this](dbus::Writer& w) { w.objectPath(mArgs.menu); } },
     },
     mExport(connection, PATH, [this](DBusMessage* call) { return handle(call); }) {}
 

@@ -235,9 +235,9 @@ bool isTunnelIp(AStringView ip) {
         int prefix;
     };
     static constexpr std::array NETS = {
-        Net { 0x64400000, 10 },   // 100.64.0.0/10
-        Net { 0xC6120000, 15 },   // 198.18.0.0/15
-        Net { 0xA9FE0000, 16 },   // 169.254.0.0/16
+        Net { .base = 0x64400000, .prefix = 10 },   // 100.64.0.0/10
+        Net { .base = 0xC6120000, .prefix = 15 },   // 198.18.0.0/15
+        Net { .base = 0xA9FE0000, .prefix = 16 },   // 169.254.0.0/16
     };
     auto addr = parseIpv4(ip);
     if (!addr) {
